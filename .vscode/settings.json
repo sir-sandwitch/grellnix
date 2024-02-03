@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "stdarg.h": "c",
+        "monitor.h": "c",
+        "isr.h": "c",
+        "descriptor_tables.h": "c",
+        "ordered_array.h": "c",
+        "stdio.h": "c",
+        "typeinfo": "c",
+        "multiboot.h": "c",
+        "stdint.h": "c"
+    }
+}
