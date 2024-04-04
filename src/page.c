@@ -4,9 +4,9 @@
 
 page_directory_t page_directory __attribute__((aligned(4096)));
 page_table_t kernel_page_table __attribute__((aligned(4096)));
-page_table_t user_page_table __attribute__((aligned(4096)));
+// page_table_t user_page_table __attribute__((aligned(4096)));
 page_table_t kernel_program_page_table __attribute__((aligned(4096)));
-page_table_t user_program_page_table __attribute__((aligned(4096)));
+// page_table_t user_program_page_table __attribute__((aligned(4096)));
 
 extern void load_page_directory(uint32_t*);
 
@@ -20,9 +20,12 @@ page_directory_t *current_directory=0;
 uint32_t *frames;
 uint32_t nframes;
 
+uint32_t npageDirs = 2;
+
 // Defined in kheap.c
 extern uint32_t placement_address;
 extern heap_t *kheap;
+extern heap_t *uheap;
 
 // Macros used in the bitset algorithms.
 #define INDEX_FROM_BIT(a) (a/(8*4))
@@ -156,13 +159,13 @@ void initialise_paging()
         kernel_page_table.pages[j].dirty = 0;
         kernel_page_table.pages[j].unused = 0;
 
-        user_page_table.pages[j].frame = j;
-        user_page_table.pages[j].present = 1;
-        user_page_table.pages[j].rw = 1;
-        user_page_table.pages[j].user = 1;
-        user_page_table.pages[j].accessed = 0;
-        user_page_table.pages[j].dirty = 0;
-        user_page_table.pages[j].unused = 0;
+        // user_page_table.pages[j].frame = j;
+        // user_page_table.pages[j].present = 1;
+        // user_page_table.pages[j].rw = 1;
+        // user_page_table.pages[j].user = 1;
+        // user_page_table.pages[j].accessed = 0;
+        // user_page_table.pages[j].dirty = 0;
+        // user_page_table.pages[j].unused = 0;
 
         kernel_program_page_table.pages[j].frame = j;
         kernel_program_page_table.pages[j].present = 1;
@@ -172,13 +175,13 @@ void initialise_paging()
         kernel_program_page_table.pages[j].dirty = 0;
         kernel_program_page_table.pages[j].unused = 0;
 
-        user_program_page_table.pages[j].frame = j;
-        user_program_page_table.pages[j].present = 1;
-        user_program_page_table.pages[j].rw = 1;
-        user_program_page_table.pages[j].user = 1;
-        user_program_page_table.pages[j].accessed = 0;
-        user_program_page_table.pages[j].dirty = 0;
-        user_program_page_table.pages[j].unused = 0;
+        // user_program_page_table.pages[j].frame = j;
+        // user_program_page_table.pages[j].present = 1;
+        // user_program_page_table.pages[j].rw = 1;
+        // user_program_page_table.pages[j].user = 1;
+        // user_program_page_table.pages[j].accessed = 0;
+        // user_program_page_table.pages[j].dirty = 0;
+        // user_program_page_table.pages[j].unused = 0;
     }
 
     // monitor_printf("kernel_page_table.pages: %x\n", kernel_page_table.pages);
@@ -189,10 +192,10 @@ void initialise_paging()
     page_directory.tablesPhysical[0] = ((uint32_t)&kernel_page_table) | 3;
     page_directory.tables[1] = &kernel_program_page_table;
     page_directory.tablesPhysical[1] = ((uint32_t)&kernel_program_page_table) | 3;
-    page_directory.tables[2] = &user_page_table;
-    page_directory.tablesPhysical[2] = ((uint32_t)&user_page_table) | 7;
-    page_directory.tables[3] = &user_program_page_table;
-    page_directory.tablesPhysical[3] = ((uint32_t)&user_program_page_table) | 7;
+    // page_directory.tables[2] = &user_page_table;
+    // page_directory.tablesPhysical[2] = ((uint32_t)&user_page_table) | 7;
+    // page_directory.tables[3] = &user_program_page_table;
+    // page_directory.tablesPhysical[3] = ((uint32_t)&user_program_page_table) | 7;
 
     // monitor_printf("page_directory.tables: %x\n", page_directory.tables);
 
@@ -267,6 +270,16 @@ page_t *get_page(uint32_t address, int make, page_directory_t *dir)
     }
 }
 
+void alloc_new_page_table(page_directory_t *dir, int is_user, int is_program)
+{
+    uint32_t tmp;
+    page_table_t *new_table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
+    memset(new_table, 0, sizeof(page_table_t));
+    uint32_t table_idx = (is_user << 1) | is_program;
+    dir->tables[table_idx] = new_table;
+    dir->tablesPhysical[table_idx] = tmp | 0x7; // PRESENT, RW, US.
+}
+
 void page_fault(registers_t regs)
 {
     // A page fault has occurred.
@@ -291,4 +304,35 @@ void page_fault(registers_t regs)
     monitor_write_hex(faulting_address);
     monitor_write("\n");
     PANIC("Page fault");
+}
+
+page_directory_t *clone_directory(page_directory_t *src){
+    uint32_t phys;
+    page_directory_t *dir = (page_directory_t*)kmalloc_ap(sizeof(page_directory_t), &phys);
+    memset(dir, 0, sizeof(page_directory_t));
+    npageDirs++;
+
+    uint32_t i;
+    for (i = 0; i < 1024; i++)
+    {
+        if (!src->tables[i])
+        {
+            continue;
+        }
+        if (kernel_directory->tables[i] == src->tables[i])
+        {
+            // we can use the same pointer
+            dir->tables[i] = src->tables[i];
+            dir->tablesPhysical[i] = src->tablesPhysical[i];
+        }
+        else
+        {
+            // we need to clone the table
+            uint32_t phys;
+            dir->tables[i] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &phys);
+            memcpy(dir->tables[i], src->tables[i], sizeof(page_table_t));
+            dir->tablesPhysical[i] = phys | 0x07;
+        }
+    }
+    return dir;
 }

@@ -67,7 +67,7 @@ type_t lookup_ordered_array(uint32_t i, ordered_array_t *array)
 
 void remove_ordered_array(uint32_t i, ordered_array_t *array)
 {
-    while (i < array->size)
+    while (i < array->size - 1)
     {
         array->array[i] = array->array[i+1];
         i++;

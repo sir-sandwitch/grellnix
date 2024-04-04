@@ -4,13 +4,25 @@
 #include <paging.h>
 #include <kheap.h>
 #include <fs.h>
+#include <task.h>
 #include <initrd.h>
 #include <multiboot.h>
 #include <common.h>
 
 extern uint32_t placement_address;
 
-int kernel_main(multiboot_info_t *mboot_ptr){
+uint32_t initial_esp;
+
+void test_task(){
+    while(1){
+        monitor_write("A");
+    }
+}
+
+int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
+    //stack pointer
+    initial_esp = initial_stack;
+
     //initialize all the ISRs and segmentation
     init_descriptor_tables();
 
@@ -67,6 +79,32 @@ int kernel_main(multiboot_info_t *mboot_ptr){
     foreground_color = 0x02;
     background_color = 0x06;
 
+    //enable timer
+    monitor_write("Enabling timer ");
+    init_timer(50);
+
+    foreground_color = 0x0A;
+    background_color = 0x01;
+    monitor_write("OK\n");
+
+    // asm volatile("xchgw %bx, %bx");
+
+    foreground_color = 0x02;
+    background_color = 0x06;
+
+    //enable multitasking
+    monitor_write("Enabling multitasking ");
+    initialise_tasking();
+
+    foreground_color = 0x0A;
+    background_color = 0x01;
+    monitor_write("OK\n");
+
+    // asm volatile("xchgw %bx, %bx");
+
+    foreground_color = 0x02;
+    background_color = 0x06;
+
     //test memory allocation
     monitor_write("Testing memory allocation ");
     uint32_t a = kmalloc(8);
@@ -96,8 +134,6 @@ int kernel_main(multiboot_info_t *mboot_ptr){
 
     foreground_color = 0x02;
     background_color = 0x06;
-
-    // asm volatile("xchgw %bx, %bx");
 
     // list the contents of /
     int i = 0;

@@ -8,6 +8,8 @@
         "stdio.h": "c",
         "typeinfo": "c",
         "multiboot.h": "c",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "task.h": "c",
+        "common.h": "c"
     }
 }

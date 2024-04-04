@@ -1,4 +1,4 @@
-SOURCES=boot.o main.o monitor.o common.o descriptor_tables.o isr.o interrupt.o gdt.o timer.o page.o pagehelper.o ordered_map.o fs.o initrd.o kheap.o
+SOURCES=boot.o main.o monitor.o common.o descriptor_tables.o isr.o interrupt.o gdt.o timer.o page.o pagehelper.o ordered_map.o fs.o initrd.o kheap.o task.o task_helper.o
 
 CFLAGS=-ffreestanding -fno-stack-protector -Iinclude
 LDFLAGS=-Tlink.ld

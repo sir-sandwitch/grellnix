@@ -72,6 +72,7 @@ _start:
 	; preserved and the call is well defined.
         ; note, that if you are building on Windows, C functions may have "_" prefix in assembly: _kernel_main
 
+	push esp
 	push ebx
 	cli
 	extern kernel_main

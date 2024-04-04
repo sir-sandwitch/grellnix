@@ -5,7 +5,7 @@
 #include <paging.h>
 #include <common.h>
 
-extern uint32_t end;
+extern uint32_t end; //end of kernel - declared in linker script
 uintptr_t placement_address = (uintptr_t)&end;
 heap_t *kheap = 0;
 
@@ -155,6 +155,8 @@ void *alloc(uint32_t size, uint8_t page_align, heap_t *heap)
     int32_t iterator = find_smallest_hole(new_size, page_align, heap);
     if (iterator == -1) // If we didn't find a suitable hole
     {
+        // monitor_printf("no suitable hole\n");
+        // asm volatile("xchgw %bx, %bx");
         // Save some previous data.
         uint32_t old_length = heap->end_address - heap->start_address;
         uint32_t old_end_address = heap->end_address;
@@ -214,6 +216,8 @@ void *alloc(uint32_t size, uint8_t page_align, heap_t *heap)
     // If we need to page-align the data, do it now and make a new hole in front of our block.
     if (page_align && orig_hole_pos & 0xFFFFF000)
     {
+        // monitor_printf("page align\n");
+        // asm volatile("xchgw %bx, %bx");
         uint32_t new_location   = orig_hole_pos + 0x1000 /* page size */  - (orig_hole_pos & 0xFFF) - sizeof(header_t);
         header_t *hole_header = (header_t *)orig_hole_pos;
         hole_header->size     = 0x1000 /* page size */  - (orig_hole_pos & 0xFFF) - sizeof(header_t);
@@ -227,8 +231,11 @@ void *alloc(uint32_t size, uint8_t page_align, heap_t *heap)
     }
     else
     {
+        // monitor_printf("no page align\n");
+        // asm volatile("xchgw %bx, %bx");
         // Else we don't need this hole any more, delete it from the index.
         remove_ordered_array(iterator, &heap->index);
+        // monitor_printf("removed\n");
     }
     // Overwrite the original header...
     header_t *block_header  = (header_t *)orig_hole_pos;
@@ -243,6 +250,8 @@ void *alloc(uint32_t size, uint8_t page_align, heap_t *heap)
     // We do this only if the new hole would have positive size...
     if (orig_hole_size - new_size > 0)
     {
+        // monitor_printf("new hole\n");
+        // asm volatile("xchgw %bx, %bx");
         header_t *hole_header = (header_t *)(orig_hole_pos + sizeof(header_t) + size + sizeof(footer_t));
         hole_header->magic    = HEAP_MAGIC;
         hole_header->is_hole  = 1;
@@ -256,6 +265,8 @@ void *alloc(uint32_t size, uint8_t page_align, heap_t *heap)
         // Put the new hole in the index;
         insert_ordered_array((type_t)hole_header, &heap->index);
     }
+    // monitor_printf("mem address: %x\n", orig_hole_pos + sizeof(header_t));
+    // asm volatile("xchgw %bx, %bx");
     // ...And we're done!
     return (void *)((uint32_t)block_header + sizeof(header_t));
 }
@@ -355,7 +366,11 @@ uint32_t kmalloc_int(size_t size, int align, uint32_t *phys)
 {
     if(kheap != 0)
     {
+        // monitor_printf("kheap\n");
+        // asm volatile("xchgw %bx, %bx");
         void *addr = alloc(size, (uint8_t)align, kheap);
+        // monitor_printf("addr: %x\n", addr);
+        // asm volatile("xchgw %bx, %bx");
         if(phys != 0)
         {
             page_t *page = get_page((uint32_t)addr, 0, kernel_directory);
@@ -366,11 +381,15 @@ uint32_t kmalloc_int(size_t size, int align, uint32_t *phys)
     // Pages are aligned to 4K, or 0x1000
     if (align == 1 && (placement_address & 0x00000FFF)) // If the address is not already page-aligned    
     {
+        // monitor_printf("align\n");
+        // asm volatile("xchgw %bx, %bx");
         placement_address &= 0xFFFFF000;
         placement_address += 0x1000;
     }
     if(phys)
     {
+        // monitor_printf("phys\n");
+        // asm volatile("xchgw %bx, %bx");
         *phys = placement_address;
     }
     uint32_t tmp = placement_address;

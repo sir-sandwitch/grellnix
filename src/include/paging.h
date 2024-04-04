@@ -43,6 +43,10 @@ extern void alloc_frame(page_t *page, int is_kernel, int is_writeable);
 
 extern void free_frame(page_t *page);
 
+extern void alloc_new_page_table(page_directory_t *dir, int is_user, int is_program);
+
+extern page_directory_t *clone_directory(page_directory_t *src);
+
 extern page_directory_t *kernel_directory;
 extern page_directory_t *current_directory;
 

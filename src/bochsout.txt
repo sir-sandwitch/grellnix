@@ -38,7 +38,7 @@
 00000000000i[USBCTL] Pluggable USB devices
 00000000000i[USBCTL]   floppy mouse tablet keypad keyboard hub disk cdrom
 00000000000i[USBCTL]   printer
-00000000000i[MEM0  ] allocated memory at 0x7fd672579010. after alignment, vector=0x7fd67257a000
+00000000000i[MEM0  ] allocated memory at 0x7fdd72fe0010. after alignment, vector=0x7fdd72fe1000
 00000000000i[MEM0  ] 32.00MB
 00000000000i[MEM0  ] mem block size = 0x00020000, blocks=256
 00000000000i[MEM0  ] rom at 0xfffe0000/131072 ('/usr/share/bochs/BIOS-bochs-latest')
@@ -50,7 +50,7 @@
 00000000000i[DEV   ] PIIX3 PCI-to-ISA bridge present at device 1, function 0
 00000000000i[PLUGIN] init_dev of 'cmos' plugin device by virtual method
 00000000000i[CMOS  ] Using local time for initial clock
-00000000000i[CMOS  ] Setting initial clock to: Sat Feb  3 13:04:39 2024 (time0=1706990679)
+00000000000i[CMOS  ] Setting initial clock to: Thu Apr  4 16:47:40 2024 (time0=1712270860)
 00000000000i[PLUGIN] init_dev of 'dma' plugin device by virtual method
 00000000000i[DMA   ] channel 4 used by cascade
 00000000000i[PLUGIN] init_dev of 'pic' plugin device by virtual method
@@ -232,28 +232,29 @@
 00001388294i[BIOS  ] Firmware waking vector 0x1ff00cc
 00001390548i[PCI   ] i440FX PMC write to PAM register 59 (TLB Flush)
 00001391278i[BIOS  ] bios_table_cur_addr: 0x000f9fc4
-00001685564i[XGUI  ] charmap update. Font is 9 x 16
-00032868953i[BIOS  ] IDE time out
-05553119519i[BIOS  ] Booting from 07c0:0000
-05709559226i[CPU0  ] WARNING: HLT instruction with IF=0!
-27361570000p[XGUI  ] >>PANIC<< POWER button turned off.
-27361570000i[CPU0  ] CPU is in protected mode (halted)
-27361570000i[CPU0  ] CS.mode = 32 bit
-27361570000i[CPU0  ] SS.mode = 32 bit
-27361570000i[CPU0  ] EFER   = 0x00000000
-27361570000i[CPU0  ] | EAX=00000000  EBX=00010000  ECX=00000001  EDX=00000002
-27361570000i[CPU0  ] | ESP=00209ffc  EBP=00000000  ESI=00000000  EDI=00000000
-27361570000i[CPU0  ] | IOPL=0 id vip vif ac vm rf nt of df if tf sf ZF af PF cf
-27361570000i[CPU0  ] | SEG sltr(index|ti|rpl)     base    limit G D
-27361570000i[CPU0  ] |  CS:0008( 0001| 0|  0) 00000000 ffffffff 1 1
-27361570000i[CPU0  ] |  DS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-27361570000i[CPU0  ] |  SS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-27361570000i[CPU0  ] |  ES:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-27361570000i[CPU0  ] |  FS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-27361570000i[CPU0  ] |  GS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
-27361570000i[CPU0  ] | EIP=0020001e (0020001e)
-27361570000i[CPU0  ] | CR0=0xe0000011 CR2=0x00000000
-27361570000i[CPU0  ] | CR3=0x0020c000 CR4=0x00000000
-27361570000i[CMOS  ] Last time is 1707018040 (Sat Feb  3 20:40:40 2024)
-27361570000i[XGUI  ] Exit
-27361570000i[SIM   ] quit_sim called with exit code 1
+00001682810i[XGUI  ] charmap update. Font is 9 x 16
+00035242470i[BIOS  ] IDE time out
+04768545026i[BIOS  ] Booting from 07c0:0000
+04840921492i[CPU0  ] WARNING: HLT instruction with IF=0!
+11904114003i[      ] Ctrl-C detected in signal handler.
+11904114003i[      ] dbg: Quit
+11904114003i[CPU0  ] CPU is in protected mode (halted)
+11904114003i[CPU0  ] CS.mode = 32 bit
+11904114003i[CPU0  ] SS.mode = 32 bit
+11904114003i[CPU0  ] EFER   = 0x00000000
+11904114003i[CPU0  ] | EAX=00000000  EBX=00010000  ECX=00000001  EDX=00000002
+11904114003i[CPU0  ] | ESP=00209ff8  EBP=00000000  ESI=00000000  EDI=00000000
+11904114003i[CPU0  ] | IOPL=0 id vip vif ac vm rf nt of df if tf sf ZF af PF cf
+11904114003i[CPU0  ] | SEG sltr(index|ti|rpl)     base    limit G D
+11904114003i[CPU0  ] |  CS:0008( 0001| 0|  0) 00000000 ffffffff 1 1
+11904114003i[CPU0  ] |  DS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
+11904114003i[CPU0  ] |  SS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
+11904114003i[CPU0  ] |  ES:0010( 0002| 0|  0) 00000000 ffffffff 1 1
+11904114003i[CPU0  ] |  FS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
+11904114003i[CPU0  ] |  GS:0010( 0002| 0|  0) 00000000 ffffffff 1 1
+11904114003i[CPU0  ] | EIP=0020001f (0020001f)
+11904114003i[CPU0  ] | CR0=0xe0000011 CR2=0x00000000
+11904114003i[CPU0  ] | CR3=0x0020c000 CR4=0x00000000
+11904114003i[CMOS  ] Last time is 1712282764 (Thu Apr  4 20:06:04 2024)
+11904114003i[XGUI  ] Exit
+11904114003i[SIM   ] quit_sim called with exit code 0
