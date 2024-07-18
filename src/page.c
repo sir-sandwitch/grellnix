@@ -9,6 +9,7 @@ page_table_t kernel_program_page_table __attribute__((aligned(4096)));
 // page_table_t user_program_page_table __attribute__((aligned(4096)));
 
 extern void load_page_directory(uint32_t*);
+extern void copy_page_physical(uint32_t, uint32_t);
 
 // The kernel's page directory
 page_directory_t *kernel_directory=0;
@@ -20,7 +21,8 @@ page_directory_t *current_directory=0;
 uint32_t *frames;
 uint32_t nframes;
 
-uint32_t npageDirs = 2;
+uint32_t npageDirs = 1;
+uint32_t npageTables = 2;
 
 // Defined in kheap.c
 extern uint32_t placement_address;
@@ -237,6 +239,12 @@ void initialise_paging()
     placement_address += 0x100000; // 1MB    
     kheap = create_heap(start, placement_address, 0xCFFFF000, 0, 0);
 
+    //clone kernel directory
+    current_directory = clone_page_directory(kernel_directory);
+    // monitor_printf("current_directory: %x\n", current_directory);
+    // asm volatile("xchgw %bx, %bx");
+    switch_page_directory(current_directory);
+
     // monitor_printf("heap created\n");
     // asm volatile("xchgw %bx, %bx");
 }
@@ -280,7 +288,7 @@ void alloc_new_page_table(page_directory_t *dir, int is_user, int is_program)
     dir->tablesPhysical[table_idx] = tmp | 0x7; // PRESENT, RW, US.
 }
 
-void page_fault(registers_t regs)
+void page_fault(registers_t *regs)
 {
     // A page fault has occurred.
     // The faulting address is stored in the CR2 register.
@@ -288,11 +296,11 @@ void page_fault(registers_t regs)
     asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
     // The error code gives us details of what happened.
-    int present   = !(regs.err_code & 0x1); // Page not present
-    int rw = regs.err_code & 0x2;           // Write operation?
-    int us = regs.err_code & 0x4;           // Processor was in user-mode?
-    int reserved = regs.err_code & 0x8;     // Overwritten CPU-reserved bits of page entry?
-    int id = regs.err_code & 0x10;          // Caused by an instruction fetch?
+    int present   = !(regs->err_code & 0x1); // Page not present
+    int rw = regs->err_code & 0x2;           // Write operation?
+    int us = regs->err_code & 0x4;           // Processor was in user-mode?
+    int reserved = regs->err_code & 0x8;     // Overwritten CPU-reserved bits of page entry?
+    int id = regs->err_code & 0x10;          // Caused by an instruction fetch?
 
     // Output an error message.
     monitor_write("Page fault! ( ");
@@ -306,33 +314,169 @@ void page_fault(registers_t regs)
     PANIC("Page fault");
 }
 
-page_directory_t *clone_directory(page_directory_t *src){
+page_directory_t *clone_page_directory(page_directory_t *src){
     uint32_t phys;
     page_directory_t *dir = (page_directory_t*)kmalloc_ap(sizeof(page_directory_t), &phys);
     memset(dir, 0, sizeof(page_directory_t));
     npageDirs++;
 
+    uint32_t offset = (uint32_t)dir->tablesPhysical - (uint32_t)dir;
+    dir->physicalAddr = phys + offset;
+
     uint32_t i;
-    for (i = 0; i < 1024; i++)
-    {
-        if (!src->tables[i])
-        {
+    for(i = 0; i < 1024; i++){
+        if (!src->tables[i]){
             continue;
         }
-        if (kernel_directory->tables[i] == src->tables[i])
-        {
+        if (kernel_directory->tables[i] == src->tables[i]){
             // we can use the same pointer
             dir->tables[i] = src->tables[i];
             dir->tablesPhysical[i] = src->tablesPhysical[i];
         }
-        else
-        {
+        else{
             // we need to clone the table
             uint32_t phys;
-            dir->tables[i] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &phys);
-            memcpy(dir->tables[i], src->tables[i], sizeof(page_table_t));
-            dir->tablesPhysical[i] = phys | 0x07;
+            dir->tables[i] = clone_page_table(src->tables[i], &phys);
+            dir->tablesPhysical[i] = phys | 0x07; // PRESENT, RW, US.
         }
     }
     return dir;
+}
+
+uint32_t virtual_address_to_physical(uint32_t virtualAddress, page_directory_t *dir){
+    uint32_t offset = virtualAddress & 0x00000FFF;
+    uint32_t table_idx = virtualAddress >> 22;
+    uint32_t page_idx = (virtualAddress >> 12) & 0x3FF;
+    page_table_t* table = dir->tables[table_idx];
+    if (!table){
+        return -1;
+    }
+    page_t page = table->pages[page_idx];
+    if (!page.frame){
+        return -1;
+    }
+    return (page.frame << 12) + offset;
+}
+
+page_table_t *clone_page_table(page_table_t *src, uint32_t *physAddress){
+    //make a new page table, which is page aligned
+    page_table_t *table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddress);
+    memset(table, 0, sizeof(page_table_t));
+    npageTables++;
+
+    uint32_t i;
+    for (i = 0; i < 1024; i++)
+    {
+        if (!src->pages[i].frame)
+        {
+            continue;
+        }
+        // get a new frame
+        alloc_frame(&table->pages[i], 0, 0);
+        // copy the page flags
+        if (src->pages[i].present) table->pages[i].present = 1;
+        if (src->pages[i].rw)      table->pages[i].rw = 1;
+        if (src->pages[i].user)    table->pages[i].user = 1;
+        if (src->pages[i].accessed)table->pages[i].accessed = 1;
+        if (src->pages[i].dirty)   table->pages[i].dirty = 1;
+
+        // clone the page
+        copy_page_physical(src->pages[i].frame*0x1000, table->pages[i].frame*0x1000);
+    }
+}
+
+// page_t *clone_page(page_t *src, uint32_t *physAddress){
+//     page_t *page = (page_t*)kmalloc_ap(sizeof(page_t), physAddress);
+//     memset(page, 0, sizeof(page_t));
+
+//     page->frame = src->frame;
+//     page->present = src->present;
+//     page->rw = src->rw;
+//     page->user = src->user;
+//     page->accessed = src->accessed;
+//     page->dirty = src->dirty;
+//     page->unused = src->unused;
+//     return page;
+// }
+
+void free_page_directory(page_directory_t *dir){
+    uint32_t i;
+    for (i = 0; i < 1024; i++)
+    {
+        if (!dir->tables[i])
+        {
+            continue;
+        }
+        if (kernel_directory->tables[i] == dir->tables[i])
+        {
+            // we can use the same pointer
+            dir->tables[i] = 0;
+            dir->tablesPhysical[i] = 0;
+        }
+        else
+        {
+            // we need to free the table
+            kfree(dir->tables[i]);
+            dir->tables[i] = 0;
+            dir->tablesPhysical[i] = 0;
+        }
+    }
+    kfree(dir);
+    npageDirs--;
+}
+
+void free_page_table(page_table_t *table){
+    uint32_t i;
+    for (i = 0; i < 1024; i++)
+    {
+        if (!table->pages[i].frame)
+        {
+            continue;
+        }
+        if (kernel_page_table.pages[i].frame == table->pages[i].frame)
+        {
+            // we can use the same pointer
+            table->pages[i].frame = 0;
+        }
+        else
+        {
+            // we need to free the page
+            table->pages[i].frame = 0;
+        }
+    }
+    kfree(table);
+    npageTables--;
+}
+
+void free_page(page_t *page){
+    if (page->frame)
+    {
+        free_frame(page);
+        page->frame = 0;
+    }
+}
+
+page_table_t *create_new_page_table(page_directory_t *dir, int is_user, int is_program){
+    page_table_t *table;
+    uint32_t phys;
+    table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &phys);
+    memset(table, 0, sizeof(page_table_t));
+    npageTables++;
+
+    uint32_t i;
+    for (i = 0; i < 1024; i++)
+    {
+        table->pages[i].frame = 0;
+        table->pages[i].present = 0;
+        table->pages[i].rw = 0;
+        table->pages[i].user = 0;
+        table->pages[i].accessed = 0;
+        table->pages[i].dirty = 0;
+        table->pages[i].unused = 0;
+    }
+
+    uint32_t table_idx = (is_user << 1) | is_program;
+    dir->tables[table_idx] = table;
+    dir->tablesPhysical[table_idx] = phys | 0x07; // PRESENT, RW, US.
+    return table;
 }

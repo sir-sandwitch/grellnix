@@ -50,4 +50,8 @@ extern uint32_t kmalloc_ap(size_t size, uint32_t *phys_addr);
 extern uint32_t kmalloc(size_t size);
 extern void kfree(void *p);
 
+extern void *stack_bottom;
+
+#define KERNEL_ROOT_STACK (uint32_t)stack_bottom
+
 #endif

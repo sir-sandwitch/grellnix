@@ -37,15 +37,24 @@ extern void switch_page_directory(page_directory_t *new);
 extern page_t *get_page(uint32_t address, int make, page_directory_t *dir);
 
 // Handler for page faults.
-extern void page_fault(registers_t regs);
+extern void page_fault(registers_t *regs);
 
 extern void alloc_frame(page_t *page, int is_kernel, int is_writeable);
 
 extern void free_frame(page_t *page);
 
 extern void alloc_new_page_table(page_directory_t *dir, int is_user, int is_program);
+extern page_table_t *create_new_page_table(page_directory_t *dir, int is_user, int is_program);
 
-extern page_directory_t *clone_directory(page_directory_t *src);
+extern uint32_t virtual_address_to_physical(uint32_t virtual, page_directory_t *dir);
+
+extern page_directory_t *clone_page_directory(page_directory_t *src);
+extern page_table_t *clone_page_table(page_table_t *src, uint32_t *physAddr);
+extern page_t *clone_page(page_t *src, uint32_t *physAddr);
+
+extern void free_page_directory(page_directory_t *dir);
+extern void free_page_table(page_table_t *table);
+extern void free_page(page_t *page);
 
 extern page_directory_t *kernel_directory;
 extern page_directory_t *current_directory;

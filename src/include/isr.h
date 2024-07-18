@@ -20,6 +20,9 @@
 #define IRQ14 46
 #define IRQ15 47
 
+#define PIC1_DATA 0x21
+#define PIC2_DATA 0xA1
+
 typedef struct registers
 {
     uint32_t ds;                  // Data segment selector
@@ -31,7 +34,7 @@ typedef struct registers
 // Enables registration of callbacks for interrupts or IRQs.
 // For IRQs, to ease confusion, use the #defines above as the
 // first parameter.
-typedef void (*isr_t)(registers_t);
+typedef void (*isr_t)(registers_t*);
 extern void register_interrupt_handler(uint8_t n, isr_t handler); 
 
 #endif // ISR_H

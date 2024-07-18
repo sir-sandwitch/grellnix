@@ -9,10 +9,12 @@
 
 uint32_t tick = 0;
 
-static void timer_callback(registers_t regs)
+static void timer_callback(registers_t *regs)
 {
     tick++;
+    // asm volatile("xchgw %bx, %bx");
     switch_task();
+    // monitor_printf("Tick: %d\n", tick);
 }
 
 void init_timer(uint32_t frequency)

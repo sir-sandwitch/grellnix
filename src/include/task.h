@@ -12,7 +12,7 @@ typedef struct {
     uint32_t esp;
     uint32_t ebp;
     uint32_t eip;
-    page_directory_t* page_directory;
+    page_table_t* page_table;
     uint32_t kernel_stack;
     heap_t* heap;
 } task_t;
@@ -43,6 +43,6 @@ extern void fork();
 extern void exec(void (*entry)());
 
 extern void move_stack(void* new_stack_start, uint32_t size);
-extern void set_kernel_stack(uint32_t stack);
+extern void set_kernel_stack(uint32_t esp, uint32_t ebp);
 
 #endif

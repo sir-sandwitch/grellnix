@@ -30,22 +30,15 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
     monitor_clear();
 
     //initrd
-    monitor_write("Initializing initrd...\n");
+    monitor_write("Initializing initrd... ");
     ASSERT(mboot_ptr);
     ASSERT(mboot_ptr->mods_count > 0);
-
-    // load bearing print statement
-    // it literally has to be this exact print statement or it will get a divide by zero error??????
-    monitor_printf("mods_count: %d\n", mboot_ptr->mods_count);
 
     uint32_t initrd_location = *((uint32_t*)mboot_ptr->mods_addr);
     uint32_t initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
 
     // Don't trample our module with placement accesses, please!
     placement_address = initrd_end;
-
-    //another load bearing print statement
-    monitor_printf("");
 
     // monitor_printf("initrd_location: %x, initrd_end: %x\n", initrd_location, initrd_end);
 
@@ -81,7 +74,9 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
 
     //enable timer
     monitor_write("Enabling timer ");
-    init_timer(50);
+    init_timer(20);
+
+    asm volatile("sti");
 
     foreground_color = 0x0A;
     background_color = 0x01;
@@ -95,6 +90,8 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
     //enable multitasking
     monitor_write("Enabling multitasking ");
     initialise_tasking();
+
+    create_new_task(test_task);
 
     foreground_color = 0x0A;
     background_color = 0x01;
@@ -166,6 +163,9 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
         i++;
     } 
 
+    // asm volatile("int $0x3");
+
+    // for(;;){asm volatile("hlt");}
 
     return 0;
 }
