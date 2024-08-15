@@ -1,8 +1,10 @@
 section .text
-    [GLOBAL read_eip]
-    read_eip:
-        mov eax, [esp] ; get the return address from the top of the stack
-        ret ; return, leaving the control flow unchanged
+    ; [GLOBAL read_eip]
+    ; read_eip:
+    ;     mov eax, [esp] ; get the return address from the top of the stack
+    ;     ret ; return, leaving the control flow unchanged
+    ;     ; pop eax
+    ;     ; ret
 
     ; Here we:
     ; * Stop interrupts so we don't get interrupted.
@@ -24,7 +26,7 @@ section .text
         mov ebp, [esp+12]  ; EBP
         mov esp, [esp+16]  ; ESP
         mov cr3, eax       ; set the page directory
-        mov eax, 0x12345   ; magic number to detect a task switch
+        ; mov eax, 0x12345   ; magic number to detect a task switch
         ; push eax           ; push dummy value
         sti;
         jmp ecx

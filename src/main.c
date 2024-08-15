@@ -11,13 +11,11 @@
 
 extern uint32_t placement_address;
 
+extern void jump_usermode();
+
 uint32_t initial_esp;
 
-void test_task(){
-    while(1){
-        monitor_write("A");
-    }
-}
+// page_directory_t __attribute__((section(".usrdata"))) *user_mode_page_dir;
 
 int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
     //stack pointer
@@ -72,9 +70,28 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
     foreground_color = 0x02;
     background_color = 0x06;
 
+    // monitor_printf("switching to user mode\n");
+
+    // //make user mode page directory
+    // user_mode_page_dir = create_new_page_directory(1);
+
+    // monitor_printf("user mode page directory physical: %x\n", user_mode_page_dir->physicalAddr);
+    // monitor_printf("test");
+
+    // //switch to user mode page directory
+    // switch_page_directory(user_mode_page_dir);
+
+    // //switch to user mode
+    // switch_to_user_mode();
+
+    // foreground_color = 0x0A;
+    // background_color = 0x01;
+    // monitor_write("OK\n");
+    // asm volatile("xchgw %bx, %bx");
+
     //enable timer
     monitor_write("Enabling timer ");
-    init_timer(20);
+    init_timer(1000);
 
     asm volatile("sti");
 
@@ -88,10 +105,9 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
     background_color = 0x06;
 
     //enable multitasking
+    // create_kernel_task(test_task);
     monitor_write("Enabling multitasking ");
-    initialise_tasking();
-
-    create_new_task(test_task);
+    initialize_tasking();
 
     foreground_color = 0x0A;
     background_color = 0x01;
@@ -168,4 +184,11 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
     // for(;;){asm volatile("hlt");}
 
     return 0;
+}
+
+void user_mode(){
+    monitor_write("User mode\n");
+    for(;;){
+        asm volatile("hlt");
+    }
 }

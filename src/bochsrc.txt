@@ -4,11 +4,12 @@ romimage: file=/usr/share/bochs/BIOS-bochs-latest
 #vgaromimage: /usr/share/bochs/VGABIOS-elpin-2.40
 vgaromimage: file=/usr/share/bochs/VGABIOS-elpin-2.40
 #floppya: 1_44=/dev/loop0, status=inserted
-ata0-master: type=cdrom, path=/home/boysmeller/projects/grellnix/src/bin/kernel.iso, status=inserted
-#ata0-master: type=cdrom, path=bin/kernel.iso, status=inserted
+#ata0-master: type=cdrom, path=/home/boysmeller/projects/grellnix/src/bin/kernel.iso, status=inserted
+ata0-master: type=cdrom, path=bin/kernel.iso, status=inserted
 boot: cdrom
 log: bochsout.txt
 mouse: enabled=0
 clock: sync=realtime
 cpu: ips=1000000 
 magic_break: enabled=1
+display_library: x, options="gui_debug"

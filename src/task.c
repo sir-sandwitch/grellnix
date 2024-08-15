@@ -1,238 +1,141 @@
 #include <task.h>
 #include <stdint.h>
 #include <paging.h>
-#include <common.h>
 #include <kheap.h>
+#include <monitor.h>
 
-int next_pid = 1;
+tcb_t *current_task;
+tcb_t *ready_queue_start=0;
+tcb_t *ready_queue_end=0;
 
-TaskArray *task_array;
+// extern void test_task();
 
-extern uint32_t read_eip();
-extern void perform_task_switch(uint32_t, uint32_t, uint32_t, uint32_t);
+extern void switch_to_task(tcb_t *next_thread);
+extern void switch_to_first_task(tcb_t *next_thread);
+extern page_directory_t *kernel_directory;
 
-extern uint32_t initial_esp;
-
-void resize_task_array(TaskArray *arr, size_t new_capacity)
-{
-    task_t *new_tasks = (task_t *)kmalloc(new_capacity * sizeof(task_t));
-    for (size_t i = 0; i < arr->size; i++)
-    {
-        new_tasks[i] = arr->tasks[i];
-    }
-    kfree(arr->tasks);
-    arr->tasks = new_tasks;
-    arr->capacity = new_capacity;
-}
-
-TaskArray *create_task_array(size_t capacity)
-{
-    TaskArray *arr = (TaskArray *)kmalloc(sizeof(TaskArray));
-    arr->tasks = (task_t *)kmalloc(capacity * sizeof(task_t));
-    arr->capacity = capacity;
-    arr->size = 0;
-    return arr;
-}
-
-void destroy_task_array(TaskArray *arr)
-{
-    kfree(arr->tasks);
-    kfree(arr);
-}
-
-void add_task(TaskArray *arr, task_t task)
-{
-    if (arr->size >= arr->capacity)
-    {
-        resize_task_array(arr, arr->capacity + 3);
-    }
-    arr->tasks[arr->size++] = task;
-}
-
-void remove_task(TaskArray *arr, size_t index)
-{
-    for (size_t i = index; i < arr->size - 1; i++)
-    {
-        arr->tasks[i] = arr->tasks[i + 1];
-    }
-    arr->size--;
-}
-
-task_t *get_task(TaskArray *arr, size_t index)
-{
-    return &arr->tasks[index];
-}
-
-//set esp and ebp to the appropriate values
-void set_kernel_stack(uint32_t esp, uint32_t ebp)
-{
-    uint32_t return_address;
-    //return back to the kernel root stack
-    asm volatile("mov %%eax, %0" : "=r"((uint32_t)&return_address));
-}
-
-void move_stack(void *new_stack_start, uint32_t size)
-{
-    uint32_t i;
-    // Allocate some space for the new stack.
-    for( i = (uint32_t)new_stack_start;
-        i >= ((uint32_t)new_stack_start-size);
-        i -= 0x1000)
-    {
-        // General-purpose stack is in user-mode.
-        alloc_frame( get_page(i, 1, current_directory), 0 /* User mode */, 1 /* Is writable */ );
-    } 
-      // Flush the TLB by reading and writing the page directory address again.
-    uint32_t pd_addr;
-    asm volatile("mov %%cr3, %0" : "=r" (pd_addr));
-    asm volatile("mov %0, %%cr3" : : "r" (pd_addr)); 
-    // Old ESP and EBP, read from registers.
-    uint32_t old_stack_pointer; asm volatile("mov %%esp, %0" : "=r" (old_stack_pointer));
-    uint32_t old_base_pointer;  asm volatile("mov %%ebp, %0" : "=r" (old_base_pointer));
-    uint32_t offset            = (uint32_t)new_stack_start - initial_esp;
-    uint32_t new_stack_pointer = old_stack_pointer + offset;
-    uint32_t new_base_pointer  = old_base_pointer + offset;
-    // Copy the stack.
-    memcpy((void*)new_stack_pointer, (void*)old_stack_pointer, initial_esp-old_stack_pointer);
-    // Backtrace through the original stack, copying new values into the new stack.
-    for(i = (uint32_t)new_stack_start; i > (uint32_t)new_stack_start-size; i -= 4)
-    {
-        uint32_t tmp = * (uint32_t*)i;
-        // If the value of tmp is inside the range of the old stack, assume it is a base pointer
-        // and remap it. This will unfortunately remap ANY value in this range, whether they are
-        // base pointers or not.
-        if (( old_stack_pointer < tmp) && (tmp < initial_esp))
-        {
-            tmp = tmp + offset;
-            uint32_t *tmp2 = (uint32_t*)i;
-            *tmp2 = tmp;
-        }
-    }
-    // Change stacks.
-    asm volatile("mov %0, %%esp" : : "r" (new_stack_pointer));
-    asm volatile("mov %0, %%ebp" : : "r" (new_base_pointer));
-}
-
-// void fork()
+// void switch_to_user_mode()
 // {
-//     task_t *parent_task = get_task(task_array, 0);
-//     task_t child_task = *parent_task;
-//     child_task.page_table = clone_page_table(parent_task->page_table);
-//     add_task(task_array, child_task);
+//    // Set up a stack structure for switching to user mode.
+//    asm volatile(
+//     "movw $((4 * 8) | 3), %ax\n\t" // ring 3 data with bottom 2 bits set for ring 3
+//     "movw %ax, %ds\n\t"
+//     "movw %ax, %es\n\t"
+//     "movw %ax, %fs\n\t"
+//     "movw %ax, %gs\n\t" // SS is handled by iret
+//     // set up the stack frame iret expects
+//     "movl %esp, %eax\n\t"
+//     "pushl $((4 * 8) | 3)\n\t" // data selector
+//     "pushl %eax\n\t"           // current esp
+//     "pushfl\n\t"               // eflags
+//     "pushl $((3 * 8) | 3)\n\t" // code selector (ring 3 code with bottom 2 bits set for ring 3)
+//     "pushl $1f\n\t"            // instruction address to return to
+//     "iret\n\t"
+//     "1:\n\t"
+//     );
 // }
 
-// Bad code
-
-// void exec(void (*entry)())
-// {
-//     task_t *parent_task = get_task(task_array, next_pid - 1 % task_array->size);
-//     parent_task->eip = (uint32_t)entry;
-
-//     // share kernel stack
-//     parent_task->esp = parent_task->esp;
-//     parent_task->ebp = parent_task->ebp;
-
-//     // Set up EIP (instruction pointer) to the entry function.
-//     uint32_t eip = (uint32_t)entry;
-
-//     // Jump to the entry function.
-//     asm volatile("jmp *%0" : : "r"(eip));
-// }
-
-void create_new_task(void (*entry)())
+void switch_to_user_mode()
 {
-    task_t task;
-    task.id = task_array->size;
-    task.eip = (uint32_t)entry;
-    task.esp = task.ebp = 0;
-    task.page_table = create_new_page_table(current_directory, 1, 1);
-    task.kernel_stack = virtual_address_to_physical(kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE, kernel_directory);
-    task.heap = create_heap(task.page_table->pages[0].frame, task.page_table->pages[1023].frame - task.page_table->pages[0].frame, 0xCFFFF000, 0, 0);
+   // Set up a stack structure for switching to user mode.
+   asm volatile("  \
+     cli; \
+     mov $0x23, %ax; \
+     mov %ax, %ds; \
+     mov %ax, %es; \
+     mov %ax, %fs; \
+     mov %ax, %gs; \
+                   \
+     mov %esp, %eax; \
+     pushl $0x23; \
+     pushl %eax; \
+     pushf; \
+     pop %eax; \
+     or $0x200, %eax; \
+     push %eax; \
+     pushl $0x1B; \
+     push $1f; \
+     iret; \
+     1: \
+     ");
+} 
 
-    //initialize esp and ebp
-    task.esp = task.ebp = task.kernel_stack;
+void create_kernel_task(void (*entry_point)()) {
+    if (ready_queue_start == 0) {
+        ready_queue_start = (tcb_t *)kmalloc(sizeof(tcb_t));
+        ready_queue_end = ready_queue_start;
+        ready_queue_start->next = ready_queue_start; // Make it circular
+    } else {
+        ready_queue_end->next = (tcb_t *)kmalloc(sizeof(tcb_t));
+        ready_queue_end = ready_queue_end->next;
+        ready_queue_end->next = ready_queue_start; // Maintain circularity
+    }
 
-    add_task(task_array, task);
+    // page_directory_t *dir = clone_page_directory(master_kernel_directory);
+    page_directory_t *dir = kernel_directory;
+    // monitor_printf("Creating task with cr3: %x\n", dir->physicalAddr);
+    ready_queue_end->cr3 = dir->physicalAddr;
+
+    ready_queue_end->esp0 = (uint32_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+    ready_queue_end->esp = ready_queue_end->esp0;
+
+    uint32_t *stack = (uint32_t *)ready_queue_end->esp;
+
+    // Prepare the stack for the initial task switch
+    *(--stack) = (uint32_t)entry_point;  // EIP
+    *(--stack) = 0x202;                  // EFLAGS (set the IF flag to enable interrupts after task switch)
+    *(--stack) = 0x08;                   // CS (assuming kernel code segment selector)
+    *(--stack) = (uint32_t)entry_point;  // EIP (entry point of the new task)
+    *(--stack) = 0;                      // EBX
+    *(--stack) = 0;                      // ESI
+    *(--stack) = 0;                      // EDI
+    *(--stack) = 0;                      // EBP
+    // *(--stack) = (uint32_t)ready_queue_end->esp0; // ESP
+
+    ready_queue_end->esp = (uint32_t)stack;  // Update the task's ESP
 }
 
-void switch_task(){
-    //return if only one task is present or tasking is not initialized
-    if(!task_array){
-        // monitor_printf("task_array is null\n");
-        return;
+
+void kernel_task(){
+    while(1){
+        monitor_printf("B");
     }
-    if(task_array->size <= 1){
-        // monitor_printf("task_array size is less than 1\n");
-        return;
+}
+
+void test_task(){
+    while(1){
+        monitor_printf("A");
     }
+}
 
-    // save the current esp and ebp
-    uint32_t esp, ebp;
-
-    asm volatile("mov %%esp, %0" : "=r"(esp));
-    asm volatile("mov %%ebp, %0" : "=r"(ebp));
-
-    monitor_printf("esp: %x, ebp: %x\n", esp, ebp);
-    asm volatile("xchgw %bx, %bx");
-
-    // Get the current task and the next task.
-    task_t *current_task = get_task(task_array, next_pid);
-    if(++next_pid >= task_array->size){
-        next_pid = 0;
-    }
-    task_t *next_task = get_task(task_array, next_pid);
-
-    monitor_printf("current_task: %x, next_task: %x\n", current_task, next_task);
-    asm volatile("xchgw %bx, %bx");
-
-    // Set the kernel stack of the next task.
-    set_kernel_stack(next_task->esp, next_task->ebp);
-
-    // monitor_printf("next_task->kernel_stack: %x\n", next_task->kernel_stack);
+void initialize_tasking(){
+    create_kernel_task(kernel_task);
+    create_kernel_task(test_task);
+    current_task = ready_queue_start;
+    asm volatile("cli");
     // asm volatile("xchgw %bx, %bx");
-
-    // Read the instruction pointer. We do some cunning logic here:
-    // One of two things could have happened when this function exits -
-    // (a) We called the function and it returned the EIP as requested.
-    // (b) We have just switched tasks, and because the saved EIP is essentially
-    // the instruction after read_eip(), it will seem as if read_eip has just
-    // returned.
-    // In the second case we need to return immediately. To detect it we put a dummy
-    // value in EAX further down at the end of this function. As C returns values in EAX,
-    // it will look like the return value is this dummy value! (0x12345).
-    monitor_printf("before read_eip\n");
-    uint32_t eip = read_eip();
-    monitor_printf("after read_eip\n");
-
-    monitor_printf("eip: %x\n", eip);
-    asm volatile("xchgw %bx, %bx");
-
-    // Have we just switched tasks?
-    if (eip == 0x12345){
-        monitor_printf("switched tasks\n");
-        asm volatile("xchgw %bx, %bx");
-        return; 
-    }
-
-    // save values and switch tasks, we didnt last time.
-    current_task->eip = eip;
-    current_task->esp = esp;
-    current_task->ebp = ebp;
-
-    // switch tasks
-    perform_task_switch(next_task->eip, current_directory->physicalAddr, ebp, esp);
+    switch_to_first_task(current_task);
 }
 
-void idle_task()
-{
-    while (1)
-    {
-        // Do nothing.
+void Schedule() {
+    if (!ready_queue_start) {
+        return;
     }
-}
 
-void initialise_tasking()
-{
-    task_array = create_task_array(1);
-    create_new_task(idle_task);
+    // monitor_printf("current_task: %x\n", current_task);
+    tcb_t *next_task = current_task ? current_task->next : ready_queue_start;
+
+    if (!next_task) {
+        next_task = ready_queue_start;  // Ensure a valid task is picked from the ready queue.
+    }
+
+    if (!next_task) {
+        // monitor_printf("No valid task found!\n");
+        return;
+    }
+
+    // monitor_printf("Switching to task with esp: %x\n", next_task->esp);
+    // asm volatile("xchgw %bx, %bx");
+    asm volatile("cli");
+    switch_to_task(next_task);
 }

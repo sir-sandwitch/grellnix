@@ -117,7 +117,7 @@ static void expand(uint32_t new_size, heap_t *heap)
     uint32_t i = old_size;
     while (i < new_size)
     {
-        alloc_frame(get_page(heap->start_address + i, 1, kernel_directory), (heap->supervisor) ? 1 : 0, (heap->readonly) ? 0 : 1);
+        alloc_frame(get_page(heap->start_address + i, 1, master_kernel_directory), (heap->supervisor) ? 1 : 0, (heap->readonly) ? 0 : 1);
         i += 0x1000 /* page size */;
     }
     heap->end_address = heap->start_address + new_size;
@@ -140,7 +140,7 @@ static uint32_t contract(uint32_t new_size, heap_t *heap)
     uint32_t i = old_size - 0x1000;
     while (new_size < i)
     {
-        free_frame(get_page(heap->start_address + i, 0, kernel_directory));
+        free_frame(get_page(heap->start_address + i, 0, master_kernel_directory));
         i -= 0x1000 /* page size */;
     }
     heap->end_address = heap->start_address + new_size;
@@ -373,7 +373,7 @@ uint32_t kmalloc_int(size_t size, int align, uint32_t *phys)
         // asm volatile("xchgw %bx, %bx");
         if(phys != 0)
         {
-            page_t *page = get_page((uint32_t)addr, 0, kernel_directory);
+            page_t *page = get_page((uint32_t)addr, 0, master_kernel_directory);
             *phys = page->frame * 0x1000 + ((uint32_t)addr & 0xFFF);
         }
         return (uint32_t)addr;

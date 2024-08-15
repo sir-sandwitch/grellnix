@@ -1,22 +1,29 @@
 #include <common.h>
 #include <descriptor_tables.h>
 #include <stdint.h>
+#include <paging.h>
 
 // Lets us access our ASM functions from our C code.
 extern void gdt_flush(uint32_t);
 extern void idt_flush(uint32_t);
+extern void tss_flush();
 
 // Internal function prototypes.
 static void init_gdt();
 static void gdt_set_gate(int32_t,uint32_t,uint32_t,uint8_t,uint8_t);
+static void write_tss(int32_t,uint16_t,uint32_t);
 
 static void init_idt();
 static void idt_set_gate(uint8_t,uint32_t,uint16_t,uint8_t);
 
-gdt_entry_t gdt_entries[5];
+extern uint32_t initial_esp;
+
+gdt_entry_t gdt_entries[6];
 gdt_ptr_t   gdt_ptr;
 idt_entry_t idt_entries[256];
 idt_ptr_t   idt_ptr; 
+
+tss_t *tss;
 
 extern void irq0();
 extern void irq1();
@@ -46,7 +53,7 @@ void init_descriptor_tables()
 
 static void init_gdt()
 {
-    gdt_ptr.limit = (sizeof(gdt_entry_t) * 5) - 1;
+    gdt_ptr.limit = (sizeof(gdt_entry_t) * 6) - 1;
     gdt_ptr.base  = (uint32_t)&gdt_entries;
 
     gdt_set_gate(0, 0, 0, 0, 0);                // Null segment
@@ -54,9 +61,47 @@ static void init_gdt()
     gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); // Data segment
     gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // User mode code segment
     gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User mode data segment
+    write_tss(5, 0x10, initial_esp);
 
     gdt_flush((uint32_t)&gdt_ptr);
+    tss_flush();
 }
+
+// Initialise our task state segment structure.
+static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0)
+{
+    tss = (tss_t*)kmalloc(sizeof(tss_t));
+
+    if(!tss){
+        PANIC("Error allocating memory for TSS\n");
+        return;
+    }
+
+    // Firstly, let's compute the base and limit of our entry into the GDT.
+    uint32_t base = (uint32_t)tss;
+    uint32_t limit = base + sizeof(*tss) - 1;
+
+    // Now, add our TSS descriptor's address to the GDT.
+    gdt_set_gate(num, base, limit, 0xE9, 0x00);
+    // gdt_set_gate(num, base, limit, 0x89, 0x00);
+
+    // Ensure the descriptor is initially zero.
+    memset(tss, 0, sizeof(*tss));
+
+    tss->ss0  = ss0;  // Set the kernel stack segment.
+    tss->esp0 = esp0; // Set the kernel stack pointer.
+
+    // Here we set the cs, ss, ds, es, fs and gs entries in the TSS. These specify what
+    // segments should be loaded when the processor switches to kernel mode. Therefore
+    // they are just our normal kernel code/data segments - 0x08 and 0x10 respectively,
+    // but with the last two bits set, making 0x0b and 0x13. The setting of these bits
+    // sets the RPL (requested privilege level) to 3, meaning that this TSS can be used
+    // to switch to kernel mode from ring 3.
+    tss->cs   = 0x0b;
+    tss->ss = tss->ds = tss->es = tss->fs = tss->gs = 0x13;
+
+    // tss->cr3 = current_directory->physicalAddr;
+} 
 
 // Set the value of one GDT entry.
 static void gdt_set_gate(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran)
@@ -153,5 +198,5 @@ static void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags
     idt_entries[num].always0 = 0;
     // We must uncomment the OR below when we get to using user-mode.
     // It sets the interrupt gate's privilege level to 3.
-    idt_entries[num].flags   = flags /* | 0x60 */;
+    idt_entries[num].flags   = flags | 0x60 ;
 } 

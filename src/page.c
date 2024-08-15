@@ -12,10 +12,13 @@ extern void load_page_directory(uint32_t*);
 extern void copy_page_physical(uint32_t, uint32_t);
 
 // The kernel's page directory
-page_directory_t *kernel_directory=0;
+page_directory_t *master_kernel_directory=0;
 
 // The current page directory;
 page_directory_t *current_directory=0;
+
+//the page directory that gets used by the kernel
+page_directory_t *kernel_directory=0;
 
 // bitset of frames - used or free
 uint32_t *frames;
@@ -201,7 +204,7 @@ void initialise_paging()
 
     // monitor_printf("page_directory.tables: %x\n", page_directory.tables);
 
-    kernel_directory = &page_directory;
+    master_kernel_directory = &page_directory;
 
     if (placement_address % 0x1000 != 0)
     {
@@ -240,7 +243,10 @@ void initialise_paging()
     kheap = create_heap(start, placement_address, 0xCFFFF000, 0, 0);
 
     //clone kernel directory
-    current_directory = clone_page_directory(kernel_directory);
+    current_directory = clone_page_directory(master_kernel_directory);
+
+    kernel_directory = current_directory;
+
     // monitor_printf("current_directory: %x\n", current_directory);
     // asm volatile("xchgw %bx, %bx");
     switch_page_directory(current_directory);
@@ -328,7 +334,7 @@ page_directory_t *clone_page_directory(page_directory_t *src){
         if (!src->tables[i]){
             continue;
         }
-        if (kernel_directory->tables[i] == src->tables[i]){
+        if (master_kernel_directory->tables[i] == src->tables[i]){
             // we can use the same pointer
             dir->tables[i] = src->tables[i];
             dir->tablesPhysical[i] = src->tablesPhysical[i];
@@ -340,6 +346,52 @@ page_directory_t *clone_page_directory(page_directory_t *src){
             dir->tablesPhysical[i] = phys | 0x07; // PRESENT, RW, US.
         }
     }
+    return dir;
+}
+
+page_directory_t *alloc_new_page_directory(int is_user){
+    uint32_t phys;
+    page_directory_t *dir = (page_directory_t*)kmalloc_ap(sizeof(page_directory_t), &phys);
+    memset(dir, 0, sizeof(page_directory_t));
+    npageDirs++;
+
+    uint32_t offset = (uint32_t)dir->tablesPhysical - (uint32_t)dir;
+    dir->physicalAddr = phys + offset;
+
+    uint32_t i;
+    for(i = 0; i < 1024; i++){
+        if (is_user){
+            alloc_new_page_table(dir, 1, 0);
+        }
+        else{
+            alloc_new_page_table(dir, 0, 0);
+        }
+    }
+    return dir;
+}
+
+page_directory_t *create_new_page_directory(int is_user){
+    page_directory_t *dir = alloc_new_page_directory(is_user);
+    uint32_t phys;
+    page_table_t *table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &phys);
+    memset(table, 0, sizeof(page_table_t));
+    npageTables++;
+
+    uint32_t i;
+    for (i = 0; i < 1024; i++)
+    {
+        table->pages[i].frame = i;
+        table->pages[i].present = 1;
+        table->pages[i].rw = 1;
+        table->pages[i].user = is_user;
+        table->pages[i].accessed = 0;
+        table->pages[i].dirty = 0;
+        table->pages[i].unused = 0;
+    }
+
+    uint32_t table_idx = (is_user << 1) | 0;
+    dir->tables[table_idx] = table;
+    dir->tablesPhysical[table_idx] = phys | 0x07; // PRESENT, RW, US.
     return dir;
 }
 
@@ -356,6 +408,24 @@ uint32_t virtual_address_to_physical(uint32_t virtualAddress, page_directory_t *
         return -1;
     }
     return (page.frame << 12) + offset;
+}
+
+uint32_t physical_address_to_virtual(uint32_t physicalAddress, page_directory_t *dir){
+    uint32_t frame = physicalAddress >> 12;
+    uint32_t offset = physicalAddress & 0x00000FFF;
+    uint32_t i;
+    for (i = 0; i < 1024; i++)
+    {
+        if (!dir->tables[i])
+        {
+            continue;
+        }
+        if (dir->tables[i]->pages[frame].frame == frame)
+        {
+            return (i << 22) + (frame << 12) + offset;
+        }
+    }
+    return -1;
 }
 
 page_table_t *clone_page_table(page_table_t *src, uint32_t *physAddress){
@@ -407,7 +477,7 @@ void free_page_directory(page_directory_t *dir){
         {
             continue;
         }
-        if (kernel_directory->tables[i] == dir->tables[i])
+        if (master_kernel_directory->tables[i] == dir->tables[i])
         {
             // we can use the same pointer
             dir->tables[i] = 0;

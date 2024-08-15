@@ -10,6 +10,8 @@
         "multiboot.h": "c",
         "stdint.h": "c",
         "task.h": "c",
-        "common.h": "c"
+        "common.h": "c",
+        "*.tcc": "c",
+        "cstdint": "c"
     }
 }

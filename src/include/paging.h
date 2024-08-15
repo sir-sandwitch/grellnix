@@ -45,8 +45,10 @@ extern void free_frame(page_t *page);
 
 extern void alloc_new_page_table(page_directory_t *dir, int is_user, int is_program);
 extern page_table_t *create_new_page_table(page_directory_t *dir, int is_user, int is_program);
+extern page_directory_t *create_new_page_directory(int is_user);
 
 extern uint32_t virtual_address_to_physical(uint32_t virtual, page_directory_t *dir);
+extern uint32_t physical_address_to_virtual(uint32_t physical, page_directory_t *dir);
 
 extern page_directory_t *clone_page_directory(page_directory_t *src);
 extern page_table_t *clone_page_table(page_table_t *src, uint32_t *physAddr);
@@ -56,7 +58,7 @@ extern void free_page_directory(page_directory_t *dir);
 extern void free_page_table(page_table_t *table);
 extern void free_page(page_t *page);
 
-extern page_directory_t *kernel_directory;
+extern page_directory_t *master_kernel_directory;
 extern page_directory_t *current_directory;
 
 #endif // PAGING_H

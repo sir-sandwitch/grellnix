@@ -2,6 +2,7 @@
 #include <isr.h>
 #include <monitor.h>
 #include <common.h>
+#include <paging.h>
 
 isr_t interrupt_handlers[256];
 
@@ -26,12 +27,45 @@ void register_interrupt_handler(uint8_t n, isr_t handler)
   interrupt_handlers[n] = handler;
 } 
 
+void gpf_handler(registers_t *regs)
+{
+  monitor_write("General Protection Fault\n");
+  monitor_write("Error code: ");
+  monitor_write_hex(regs->err_code);
+  monitor_put('\n');
+  monitor_write("EIP: ");
+  monitor_write_hex(regs->eip);
+  monitor_put('\n');
+  monitor_write("CS: ");
+  monitor_write_hex(regs->cs);
+  monitor_put('\n');
+  monitor_write("EFLAGS: ");
+  monitor_write_hex(regs->eflags);
+  monitor_put('\n');
+  monitor_write("ESP: ");
+  monitor_write_hex(regs->esp);
+  monitor_put('\n');
+  monitor_write("SS: ");
+  monitor_write_hex(regs->ss);
+  monitor_put('\n');
+  for(;;);
+}
+
 // This gets called from our ASM interrupt handler stub.
 void isr_handler(registers_t regs)
 {
-  monitor_write("recieved interrupt (ISR): ");
-  monitor_write_dec(regs.int_no);
-  monitor_put('\n');
+  if(regs.int_no == 14){
+    page_fault(&regs);
+  }
+  else if(regs.int_no == 13){
+    gpf_handler(&regs);
+  }
+  else{
+    monitor_write("recieved interrupt (ISR): ");
+    monitor_write_dec(regs.int_no);
+    monitor_put('\n');
+    for(;;);
+  }
 } 
 
 // This gets called from our ASM interrupt handler stub.

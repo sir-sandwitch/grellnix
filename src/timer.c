@@ -13,7 +13,7 @@ static void timer_callback(registers_t *regs)
 {
     tick++;
     // asm volatile("xchgw %bx, %bx");
-    switch_task();
+    Schedule();
     // monitor_printf("Tick: %d\n", tick);
 }
 
