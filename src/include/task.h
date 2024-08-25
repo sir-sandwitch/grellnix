@@ -12,9 +12,13 @@ typedef struct thread_control_block {
     struct thread_control_block* next;
 } tcb_t;
 
+extern void initialize_tasking();
+
 extern void create_kernel_task(void (*entry_point)());
 extern void Schedule();
 
 extern void switch_to_user_mode();
+
+extern void end_task(tcb_t *task);
 
 #endif

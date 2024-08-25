@@ -14,6 +14,8 @@ extern void switch_to_task(tcb_t *next_thread);
 extern void switch_to_first_task(tcb_t *next_thread);
 extern page_directory_t *kernel_directory;
 
+extern void post_tasking_init();
+
 // void switch_to_user_mode()
 // {
 //    // Set up a stack structure for switching to user mode.
@@ -95,22 +97,35 @@ void create_kernel_task(void (*entry_point)()) {
     ready_queue_end->esp = (uint32_t)stack;  // Update the task's ESP
 }
 
+void end_task(tcb_t *task){
+    if(task == ready_queue_start){
+        ready_queue_start = ready_queue_start->next;
+    }
+    tcb_t *t = ready_queue_start;
+    while(t->next != task){
+        t = t->next;
+    }
+    t->next = task->next;
+    kfree((void *)task->esp0);
+    kfree((void *)task);
+}
+
 
 void kernel_task(){
     while(1){
-        monitor_printf("B");
+        // monitor_printf("B");
     }
 }
 
 void test_task(){
     while(1){
-        monitor_printf("A");
+        // monitor_printf("A");
     }
 }
 
 void initialize_tasking(){
     create_kernel_task(kernel_task);
-    create_kernel_task(test_task);
+    create_kernel_task(post_tasking_init);
     current_task = ready_queue_start;
     asm volatile("cli");
     // asm volatile("xchgw %bx, %bx");
