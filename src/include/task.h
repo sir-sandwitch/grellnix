@@ -14,6 +14,7 @@ typedef struct thread_control_block {
 
 extern void initialize_tasking();
 
+extern void create_user_task(void (*entry_point)());
 extern void create_kernel_task(void (*entry_point)());
 extern void Schedule();
 

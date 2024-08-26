@@ -114,13 +114,6 @@ void monitor_clear(){
     move_cursor();
 }
 
-void monitor_write(char *c){
-    int i = 0;
-    while(c[i]){
-        monitor_put(c[i++]);
-    }
-}
-
 void monitor_write_hex(uint32_t n){
     int tmp;
     monitor_write("0x");

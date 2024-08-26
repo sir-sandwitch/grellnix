@@ -12,7 +12,7 @@ extern void monitor_put(char c);
 extern void monitor_clear();
 
 // Output a null-terminated ASCII string to the monitor.
-extern void monitor_write(char *c);
+// extern void monitor_write(char *c);
 
 extern void move_cursor();
 
@@ -33,5 +33,12 @@ extern uint8_t cursor_x;
 extern uint8_t cursor_y;
 
 extern uint16_t *video_memory;
+
+#define monitor_write(c) do { \
+    int i = 0; \
+    while(c[i]) { \
+        monitor_put(c[i++]); \
+    } \
+} while (0)
 
 #endif // MONITOR_H

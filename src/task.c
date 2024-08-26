@@ -117,11 +117,6 @@ void kernel_task(){
     }
 }
 
-void test_task(){
-    while(1){
-        // monitor_printf("A");
-    }
-}
 
 void initialize_tasking(){
     create_kernel_task(kernel_task);
@@ -130,6 +125,37 @@ void initialize_tasking(){
     asm volatile("cli");
     // asm volatile("xchgw %bx, %bx");
     switch_to_first_task(current_task);
+}
+
+void create_user_task(void (*entry_point)()){
+    if(ready_queue_start == 0){
+        ready_queue_start = (tcb_t *)kmalloc(sizeof(tcb_t));
+        ready_queue_end = ready_queue_start;
+        ready_queue_start->next = ready_queue_start;
+    }else{
+        ready_queue_end->next = (tcb_t *)kmalloc(sizeof(tcb_t));
+        ready_queue_end = ready_queue_end->next;
+        ready_queue_end->next = ready_queue_start;
+    }
+
+    page_directory_t *dir = clone_page_directory(kernel_directory);
+    ready_queue_end->cr3 = dir->physicalAddr;
+
+    ready_queue_end->esp0 = (uint32_t)kmalloc(KERNEL_STACK_SIZE) + KERNEL_STACK_SIZE;
+    ready_queue_end->esp = ready_queue_end->esp0;
+
+    uint32_t *stack = (uint32_t *)ready_queue_end->esp;
+
+    *(--stack) = (uint32_t)entry_point;
+    *(--stack) = 0x202;
+    *(--stack) = 0x18;
+    *(--stack) = (uint32_t)entry_point;
+    *(--stack) = 0;
+    *(--stack) = 0;
+    *(--stack) = 0;
+    *(--stack) = 0;
+
+    ready_queue_end->esp = (uint32_t)stack;
 }
 
 void Schedule() {

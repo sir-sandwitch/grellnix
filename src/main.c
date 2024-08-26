@@ -17,45 +17,47 @@ uint32_t initial_esp;
 
 page_directory_t __attribute__((section(".usrdata"))) *user_mode_page_dir;
 
+void user_mode();
+
 void post_tasking_init(){
-    foreground_color = 0x0A;
-    background_color = 0x01;
-    monitor_write("OK\n");
+    // foreground_color = 0x0A;
+    // background_color = 0x01;
+    // monitor_write("OK\n");
 
-    // asm volatile("xchgw %bx, %bx");
+    // // asm volatile("xchgw %bx, %bx");
 
-    foreground_color = 0x02;
-    background_color = 0x06;
+    // foreground_color = 0x02;
+    // background_color = 0x06;
 
-    //test memory allocation
-    monitor_write("Testing memory allocation ");
-    uint32_t a = kmalloc(8);
-    uint32_t b = kmalloc(8);
-    uint32_t c = kmalloc(8);
-    // asm volatile("xchgw %bx, %bx");
-    uint32_t oldb = b;
+    // //test memory allocation
+    // monitor_write("Testing memory allocation ");
+    // uint32_t a = kmalloc(8);
+    // uint32_t b = kmalloc(8);
+    // uint32_t c = kmalloc(8);
+    // // asm volatile("xchgw %bx, %bx");
+    // uint32_t oldb = b;
 
-    kfree(c);
-    // asm volatile("xchgw %bx, %bx");
-    kfree(b);
+    // kfree(c);
+    // // asm volatile("xchgw %bx, %bx");
+    // kfree(b);
 
-    uint32_t d = kmalloc(12);
+    // uint32_t d = kmalloc(12);
 
-    //if the memory allocation is not working, the kernel will hang here
-    if(d != oldb){
-        foreground_color = 0x0C;
-        background_color = 0x01;
-        monitor_write("Failed\n");
-        while(1){}
-    }
-    else{
-        foreground_color = 0x0A;
-        background_color = 0x01;
-        monitor_write("OK\n");
-    }
+    // //if the memory allocation is not working, the kernel will hang here
+    // if(d != oldb){
+    //     foreground_color = 0x0C;
+    //     background_color = 0x01;
+    //     monitor_write("Failed\n");
+    //     while(1){}
+    // }
+    // else{
+    //     foreground_color = 0x0A;
+    //     background_color = 0x01;
+    //     monitor_write("OK\n");
+    // }
 
-    foreground_color = 0x02;
-    background_color = 0x06;
+    // foreground_color = 0x02;
+    // background_color = 0x06;
 
     // list the contents of /
     int i = 0;
@@ -75,7 +77,10 @@ void post_tasking_init(){
         }
         else
         {
-            monitor_write("\n\t contents: \"");
+            char msg[15] = "\n\t contents: \"";
+            for(int j = 0; j < 15; j++){
+                monitor_put(msg[j]);
+            }
             // asm volatile("xchgw %bx, %bx");
             char buf[256];
             uint32_t sz = read_fs(fsnode, 0, 256, buf);
@@ -94,7 +99,9 @@ void post_tasking_init(){
 
     switch_to_user_mode();
 
-    end_task(current_task);
+    // create_user_task(user_mode);
+
+    // end_task(current_task);
 }
 
 int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
@@ -175,14 +182,14 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
 
     asm volatile("sti");
 
-    foreground_color = 0x0A;
-    background_color = 0x01;
-    monitor_write("OK\n");
+    // foreground_color = 0x0A;
+    // background_color = 0x01;
+    // monitor_write("OK\n");
 
-    // asm volatile("xchgw %bx, %bx");
+    // // asm volatile("xchgw %bx, %bx");
 
-    foreground_color = 0x02;
-    background_color = 0x06;
+    // foreground_color = 0x02;
+    // background_color = 0x06;
 
     //enable multitasking
     // create_kernel_task(test_task);
@@ -197,8 +204,8 @@ int kernel_main(multiboot_info_t *mboot_ptr, uint32_t initial_stack){
 }
 
 void user_mode(){
-    monitor_write("User mode\n");
+    // monitor_write("User mode\n");
     for(;;){
-        asm volatile("hlt");
+        // asm volatile("hlt");
     }
 }

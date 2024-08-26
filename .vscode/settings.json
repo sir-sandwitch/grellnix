@@ -12,6 +12,7 @@
         "task.h": "c",
         "common.h": "c",
         "*.tcc": "c",
-        "cstdint": "c"
+        "cstdint": "c",
+        "random": "c"
     }
 }
