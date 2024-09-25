@@ -2,6 +2,7 @@
 #define TASK_H
 
 #include <stdint.h>
+#include <paging.h>
 
 #define KERNEL_STACK_SIZE 16384
 
@@ -14,7 +15,7 @@ typedef struct thread_control_block {
 
 extern void initialize_tasking();
 
-extern void create_user_task(void (*entry_point)());
+extern void create_user_task(void (*entry_point)(), page_directory_t *dir);
 extern void create_kernel_task(void (*entry_point)());
 extern void Schedule();
 

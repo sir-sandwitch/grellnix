@@ -12,7 +12,7 @@ extern void monitor_put(char c);
 extern void monitor_clear();
 
 // Output a null-terminated ASCII string to the monitor.
-// extern void monitor_write(char *c);
+extern void monitor_write_func(char *c);
 
 extern void move_cursor();
 

@@ -364,35 +364,45 @@ void free(void *p, heap_t *heap){
 
 uint32_t kmalloc_int(size_t size, int align, uint32_t *phys)
 {
-    if(kheap != 0)
+    if (kheap != 0)
     {
-        // monitor_printf("kheap\n");
-        // asm volatile("xchgw %bx, %bx");
         void *addr = alloc(size, (uint8_t)align, kheap);
-        // monitor_printf("addr: %x\n", addr);
-        // asm volatile("xchgw %bx, %bx");
-        if(phys != 0)
+        if (addr == NULL)
+        {
+            // Allocation failed
+            return 0;
+        }
+        if (phys != 0)
         {
             page_t *page = get_page((uint32_t)addr, 0, master_kernel_directory);
+            if (page == NULL)
+            {
+                // Page retrieval failed
+                return 0;
+            }
             *phys = page->frame * 0x1000 + ((uint32_t)addr & 0xFFF);
         }
         return (uint32_t)addr;
     }
+
     // Pages are aligned to 4K, or 0x1000
     if (align == 1 && (placement_address & 0x00000FFF)) // If the address is not already page-aligned    
     {
-        // monitor_printf("align\n");
-        // asm volatile("xchgw %bx, %bx");
         placement_address &= 0xFFFFF000;
         placement_address += 0x1000;
     }
-    if(phys)
+
+    if (phys)
     {
-        // monitor_printf("phys\n");
-        // asm volatile("xchgw %bx, %bx");
         *phys = placement_address;
     }
+
     uint32_t tmp = placement_address;
+    if (placement_address + size < placement_address) // Check for overflow
+    {
+        // Overflow detected
+        return 0;
+    }
     placement_address += size;
     return tmp;
 }

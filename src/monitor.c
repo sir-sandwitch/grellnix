@@ -97,6 +97,10 @@ void monitor_put(char c){
     move_cursor();
 }
 
+void monitor_write_func(char *c){
+    monitor_write(c);
+}
+
 void monitor_clear(){
     uint8_t back_color = background_color;
     uint8_t fore_color = foreground_color;
